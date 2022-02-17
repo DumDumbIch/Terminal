@@ -1,4 +1,4 @@
-package com.dumdumbich.sample.android.equipment.bluetooth.terminal
+package com.dumdumbich.sample.android.equipment.bluetooth.terminal.ui
 
 import android.Manifest
 import android.app.Activity
@@ -11,10 +11,12 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import com.dumdumbich.sample.android.equipment.bluetooth.terminal.app
 import com.dumdumbich.sample.android.equipment.bluetooth.terminal.databinding.ActivityMainBinding
 import java.io.IOException
 import java.util.*
@@ -46,6 +48,7 @@ class MainActivity : AppCompatActivity() {
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Log.d(TAG, "onCreate() called with: savedInstanceState = $savedInstanceState")
         super.onCreate(savedInstanceState)
         ui = ActivityMainBinding.inflate(layoutInflater)
         setContentView(ui.root)
@@ -67,6 +70,13 @@ class MainActivity : AppCompatActivity() {
                 bluetoothOn()
             }
         }
+
+        ui.outputMessageTextInputLayout.setEndIconOnClickListener {
+            val outputMessage = ui.outputMessageEditText.text.toString()
+            Toast.makeText(this, "Output message: $outputMessage", Toast.LENGTH_SHORT).show()
+        }
+
+        ui.outputMessageEditText
 
     }
 
@@ -130,6 +140,9 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "Connection complete")
                 uiHandler.post {
                     ui.bluetoothStatusTextView.text = "${bluetoothDevice?.name} connected"
+                }
+                bluetoothSocket?.let { socket ->
+                    // Run data exchange with Steward device
                 }
             }
         }
