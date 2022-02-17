@@ -1,10 +1,8 @@
 package com.dumdumbich.sample.android.equipment.bluetooth.terminal.ui
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothSocket
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -17,16 +15,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.dumdumbich.sample.android.equipment.bluetooth.terminal.app
+import com.dumdumbich.sample.android.equipment.bluetooth.terminal.data.hal.bluetooth.Bluetooth
 import com.dumdumbich.sample.android.equipment.bluetooth.terminal.databinding.ActivityMainBinding
-import java.io.IOException
-import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
 
     companion object {
         private val TAG = "@@@ " + MainActivity::class.java.simpleName
-        private val BT_MODULE_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     }
 
     private lateinit var ui: ActivityMainBinding
@@ -34,7 +30,6 @@ class MainActivity : AppCompatActivity() {
     private val uiHandler by lazy { Handler(mainLooper) }
     private val jobHandler by lazy { Handler(handlerThread.looper) }
 
-    private val enableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
     private val bluetoothEnableLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
@@ -42,9 +37,6 @@ class MainActivity : AppCompatActivity() {
                 bluetoothConnect()
             }
         }
-    private var bluetoothPairedDevices: Set<BluetoothDevice>? = null
-    private var bluetoothDevice: BluetoothDevice? = null
-    private var bluetoothSocket: BluetoothSocket? = null
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,7 +47,7 @@ class MainActivity : AppCompatActivity() {
 
         handlerThread.start()
 
-        if (app.bluetoothAdapter.isEnabled) {
+        if (app.bluetooth.isOn()) {
             ui.bluetoothTurnOnOffButton.text = "ON"
             ui.bluetoothStatusTextView.text = "Undefined"
         } else {
@@ -64,7 +56,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         ui.bluetoothTurnOnOffButton.setOnClickListener {
-            if (app.bluetoothAdapter.isEnabled) {
+            if (app.bluetooth.isOn()) {
                 bluetoothOff()
             } else {
                 bluetoothOn()
@@ -74,15 +66,14 @@ class MainActivity : AppCompatActivity() {
         ui.outputMessageTextInputLayout.setEndIconOnClickListener {
             val outputMessage = ui.outputMessageEditText.text.toString()
             Toast.makeText(this, "Output message: $outputMessage", Toast.LENGTH_SHORT).show()
+            app.bluetooth.outputMessage = outputMessage
         }
-
-        ui.outputMessageEditText
 
     }
 
     private fun bluetoothOn() {
-        app.bluetoothAdapter.takeIf { !it.isEnabled }.also {
-            bluetoothEnableLauncher.launch(enableIntent)
+        if (app.bluetooth.isOff()) {
+            bluetoothEnableLauncher.launch(Bluetooth.enableIntent)
         }
     }
 
@@ -92,57 +83,20 @@ class MainActivity : AppCompatActivity() {
                 Manifest.permission.BLUETOOTH_CONNECT
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            app.bluetoothAdapter.disable()
+            app.bluetooth.off()
             ui.bluetoothTurnOnOffButton.text = "OFF"
             ui.bluetoothStatusTextView.text = "Disconnected"
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun bluetoothConnect() {
         jobHandler.post {
-            var connectionFail = false
-            if (ActivityCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.BLUETOOTH_CONNECT
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                bluetoothPairedDevices = app.bluetoothAdapter.bondedDevices
-            }
-            bluetoothPairedDevices?.let { devices ->
-                devices.forEach { device ->
-                    if (device.name == "Sketch") {
-                        bluetoothDevice = app.bluetoothAdapter.getRemoteDevice(device.address)
-                    }
-                }
-            }
-            try {
-                bluetoothDevice?.let { device ->
-                    bluetoothSocket = device.createRfcommSocketToServiceRecord(BT_MODULE_UUID)
-                }
-            } catch (e: IOException) {
-                connectionFail = true
-                Log.d(TAG, "Socket creation fail")
-            }
-            Log.d(TAG, "Establish the Bluetooth socket connection...")
-            try {
-                bluetoothSocket?.connect()
-            } catch (e: IOException) {
-                try {
-                    connectionFail = true
-                    bluetoothSocket?.close()
-                    Log.d(TAG, "Socket connection fail")
-                } catch (e2: IOException) {
-                    //insert code to deal with this
-                    Log.d(TAG, "Socket connection failed")
-                }
-            }
-            if (!connectionFail) {
-                Log.d(TAG, "Connection complete")
+            if (app.bluetooth.connect()) {
                 uiHandler.post {
-                    ui.bluetoothStatusTextView.text = "${bluetoothDevice?.name} connected"
-                }
-                bluetoothSocket?.let { socket ->
-                    // Run data exchange with Steward device
+                    ui.bluetoothStatusTextView.text =
+                        "${app.bluetooth.deviceName} connected"
+
                 }
             }
         }

@@ -3,13 +3,12 @@ package com.dumdumbich.sample.android.equipment.bluetooth.terminal
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import com.dumdumbich.sample.android.equipment.bluetooth.terminal.data.hal.bluetooth.Bluetooth
 import java.util.*
 
 
@@ -20,8 +19,7 @@ class App : Application() {
         val NOTIFICATION_CHANNEL_ID = UUID.randomUUID().toString()
     }
 
-    private lateinit var bluetoothManager: BluetoothManager
-    lateinit var bluetoothAdapter: BluetoothAdapter
+    lateinit var bluetooth: Bluetooth
 
 
     override fun onCreate() {
@@ -31,8 +29,8 @@ class App : Application() {
         packageManager.takeIf { it.missingSystemFeature(PackageManager.FEATURE_BLUETOOTH) }?.also {
             throw IllegalAccessException("Bluetooth not supported on this device")
         }
-        bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        bluetoothAdapter = bluetoothManager.adapter
+
+        bluetooth = Bluetooth(this)
 
         setNotificationChannel()
         startStewardService()
